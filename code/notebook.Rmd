@@ -1,0 +1,30 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+home page - I dont think anthing has to go here yet
+
+explorer tab - keep it simple.
+
+(1) introduce the plant list
+(2) visualize species properties
+    bee richness - bar fatness
+    plant cost - side bar
+    bloom period - graphical
+    herbivore abundance - side bar
+
+
+(3) allow user to subset plant list
+(4) visualize subsequent mix properties 
+
+```{r}
+
+```
+
+new chunk
+
+```{r}
+
+```
+
