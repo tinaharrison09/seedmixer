@@ -34,8 +34,7 @@ plant_phen = ifelse(temp>3, 1, 0) %>% t
 # plant_phen %>% t %>% image
 
 ### plant cost
-plant_cost = plant_trait$price_kw14
-plant_cost[is.na(plant_cost)] = 70 # FLAG
+plant_trait$price_kw14[is.na(plant_trait$price_kw14)] = 70 # FLAG
 
 ### GET BEE DATA
 bee_trait = read.csv("data/bee_traits.csv", row.names = 1) %>%
@@ -67,8 +66,44 @@ bee_trait = bee_trait[match(rownames(bee_plant), bee_trait$bee), ]
 
 	bee_plant = as.matrix(bee_plant)
 
-	S = nrow(plant_trait)
+
 	
+	
+###################################################
+### function for subsetting data that can be called within objective functions
+###################################################	
+	# new principle: never change original (S = 41) data tables
+	# and never pass their names directly to functions or other code
+	# always pass through pool.filter first and use resulting variable definitions.
+	# idea for extension: could filter the bee pool as well 
+		
+	pool.filter <- function(pool = rep(1, nrow(plant_trait)), 
+	                        b.pool = rep(1, nrow(bee_trait)),
+	                        pos = -1) {
+	  
+	  # check
+	  if(length(pool) != nrow(plant_trait)) {print("wrong plant pool length")}
+	  if(length(b.pool) != nrow(bee_trait)) {print("wrong bee pool vector lenght")}
+	        
+	      x = which(pool == 1); y = which(b.pool == 1)
+	  
+	  assign("Ipb", bee_plant[y, x], .GlobalEnv)
+	  assign("Pp", plant_phen[x, ], .GlobalEnv)
+	  assign("Tp", plant_trait[x, ], .GlobalEnv)
+
+	  assign("Pb", bee_phen[y, ], .GlobalEnv)
+	  assign("Tb", bee_trait[y, ], .GlobalEnv)
+	  
+	  assign("Sp", nrow(Tp), envir = .GlobalEnv)
+	  assign("Sb", nrow(Tb), envir = .GlobalEnv)
+	  	} # close pool.filter
+	
+	### NOTE pool.filter reassigns variables in the global environment
+	### if something gets slow or weird I would guess it's this one
+	### avoid putting it inside functions.
+	
+
+		
 ###################################################
 ### objective and cost functions
 ###################################################
@@ -77,31 +112,29 @@ bee_trait = bee_trait[match(rownames(bee_plant), bee_trait$bee), ]
 ### supported bee biodiversity
 ############
 
-biodiv = function(x, B = bee_phen, I = bee_plant, P = plant_phen) {
-	
-#	if(sum(pool) < S) {I = I[, pool]; P = P[pool, ]} 
+biodiv = function(x) {
 
-b.hat = (I %*% (P * x)) * B
-b.j = rowSums(ifelse(b.hat > 0, 1, 0)*B)/rowSums(B)
+b.hat = (Ipb %*% (Pp * x)) * Pb
+b.j = rowSums(ifelse(b.hat > 0, 1, 0)*Pb)/rowSums(Pb)
 
 	# RETURN number of bee species with adequate coverage
 	sum(b.j > 0.9)
 }
 
 
+#	biodiv(rbinom(nrow(plant_trait), 1, 0.2))
+
 
 ############
 ### crop pollination
 ############
 
-pollen = function(x, crop = "sunflower", B = bee_phen, I = bee_plant, P = plant_phen, Tr = bee_trait, pool = rep(1,S)) {
+pollen = function(x, crop = "sunflower") {
 
-	if(sum(pool) < S) {I = I[, pool]; P = P[pool, ]} 
+  b.hat = (Ipb %*% (Pp * x)) * Pb
+  b.j = rowSums(ifelse(b.hat > 0, 1, 0)*Pb)/rowSums(Pb)
 
-b.hat = (I %*% (P * x)) * B
-b.j = rowSums(ifelse(b.hat > 0, 1, 0)*B)/rowSums(B)
-
-	sum(b.j[Tr[, crop] == 1] > 0.9)
+	sum(b.j[Tb[, crop] == 1] > 0.9)
 } 
 
 
@@ -109,29 +142,27 @@ b.j = rowSums(ifelse(b.hat > 0, 1, 0)*B)/rowSums(B)
 ### cost function
 ############
 ### note that this function is non-linear for x if s is not fixed
-cost.s = function(x, A = 10, C = plant_cost, s = 10) {	
-				A*sum(C*x)/s}
-
-	cost = function(x, A = 10, C = plant_cost) {	
-	     # if(sum(pool) < S) {C = plant_cost[pool]}
-				A*sum(C*x)/sum(x)}
-
+# cost.s = function(x, A = 10, C = plant_cost, s = 10) {	
+# 				A*sum(C*x)/s}
+# 
+# 	cost = function(x, A = 10, C = plant_cost) {	
+# 	     # if(sum(pool) < S) {C = plant_cost[pool]}
+# 				A*sum(C*x)/sum(x)}
 	
-	cost = function(x, C = plant_cost) {	
+	cost = function(x, C = Tp$price_kw14) {	
 	  # if(sum(pool) < S) {C = plant_cost[pool]}
 	  sum(C*x)}
-	
+
 ############
 ### temporal bee function
 ### returns vector
 ############
 
-temporal = function(x, B = bee_phen, I = bee_plant, P = plant_phen, T = bee_trait, pool = rep(1,S)) {
-  if(sum(pool) < S) {I = I[, pool]; P = P[pool, ]} 
-  
-		b.hat = (I %*% (P * x)) * B
-		b.j = rowSums(ifelse(b.hat > 0, 1, 0)*B)/rowSums(B)
-	colSums(B[b.j > 0.9,])
+temporal = function(x) {
+  b.hat = (Ipb %*% (Pp * x)) * Pb
+  b.j = rowSums(ifelse(b.hat > 0, 1, 0)*Pb)/rowSums(Pb)
+
+	colSums(Pb[b.j > 0.9,])
 }
 
 
@@ -141,25 +172,24 @@ temporal = function(x, B = bee_phen, I = bee_plant, P = plant_phen, T = bee_trai
 ### dilution model - nonlinear
 ############
 
-herbivore = function(x, F = plant_trait, pool = rep(1, S), A = 10) {
+herbivore = function(x, A = 10) {
 
-  	if(sum(pool) < S) {F = F[pool, ]} 
-	
-	A*sum(F$Herbivores*x)/sum(x)		
+	A*sum(Tp$Herbivores*x)/sum(x)		
 
 }
 
-biodiv(rbinom(S, 1, 0.2), pool = rep(1,S))
+	
 
-S = nrow(plant_phen)
-R = nrow(bee_phen)
+	# check everything whoo!
+	
+	
+pool.filter(mix)
 
-
-rbinom(S, 1, 0.2) %>% biodiv
-rbinom(S, 1, 0.2) %>% pollen(crop = "tomato")
-rbinom(S, 1, 0.2) %>% cost
-rbinom(S, 1, 0.2) %>% temporal
-rbinom(S, 1, 0.1) %>% herbivore
+rbinom(Sp, 1, 0.2) %>% biodiv
+rbinom(Sp, 1, 0.2) %>% pollen(crop = "sunflower")
+rbinom(Sp, 1, 0.2) %>% cost
+rbinom(Sp, 1, 0.2) %>% temporal
+rbinom(Sp, 1, 0.1) %>% herbivore
 
 
 

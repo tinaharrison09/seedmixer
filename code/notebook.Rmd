@@ -3,6 +3,15 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+Code README
+
+First run "ecology" - this loads the data and objective functions
+
+
+
+
+Website description
+
 home page - I dont think anthing has to go here yet
 
 explorer tab - keep it simple.
