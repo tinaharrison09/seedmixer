@@ -1,10 +1,9 @@
 require(plyr)
 require(magrittr)
 require(stringr)
-
-setwd("C:/Users/ceratina/Desktop/webtool2/")
-list.files()
-
+require(scales)
+require(GA)
+require(RColorBrewer)
 
 ###################################################
 ### get data objects needed by rest of the code
@@ -22,6 +21,10 @@ list.files()
 plant_trait = read.csv("data/bee_bio_plants.csv") %>%
 			subset(is.na(lower) == F)
 plant_trait = plant_trait[-42,]
+
+### plant data for table
+tidy_plant = subset(plant_trait, select = c("Common.name", "gen_sp", "family", "A.P", "peak"))
+
 
 plant_phen = lapply(1:nrow(plant_trait), function(x) {
 				cal = rep(0, 365)
@@ -59,10 +62,10 @@ bee_phen = bee_phen[match(rownames(bee_plant), bee_trait$bee), ]
 bee_trait = bee_trait[match(rownames(bee_plant), bee_trait$bee), ]
 
 
-	nrow(bee_phen) == nrow(bee_plant)
-	nrow(plant_phen) == ncol(bee_plant)
-	nrow(plant_trait) == nrow(plant_phen)
-	nrow(bee_trait) == nrow(bee_phen)
+	# nrow(bee_phen) == nrow(bee_plant)
+	# nrow(plant_phen) == ncol(bee_plant)
+	# nrow(plant_trait) == nrow(plant_phen)
+	# nrow(bee_trait) == nrow(bee_phen)
 
 	bee_plant = as.matrix(bee_plant)
 
@@ -102,7 +105,7 @@ bee_trait = bee_trait[match(rownames(bee_plant), bee_trait$bee), ]
 	### if something gets slow or weird I would guess it's this one
 	### avoid putting it inside functions.
 	
-
+pool.filter()
 		
 ###################################################
 ### objective and cost functions
@@ -182,15 +185,58 @@ herbivore = function(x, A = 10) {
 
 	# check everything whoo!
 	
+# 	
+# pool.filter(mix)
+# 
+# rbinom(Sp, 1, 0.2) %>% biodiv
+# rbinom(Sp, 1, 0.2) %>% pollen(crop = "sunflower")
+# rbinom(Sp, 1, 0.2) %>% cost
+# rbinom(Sp, 1, 0.2) %>% temporal
+# rbinom(Sp, 1, 0.1) %>% herbivore
+# 
+# 
+
+
 	
-pool.filter(mix)
-
-rbinom(Sp, 1, 0.2) %>% biodiv
-rbinom(Sp, 1, 0.2) %>% pollen(crop = "sunflower")
-rbinom(Sp, 1, 0.2) %>% cost
-rbinom(Sp, 1, 0.2) %>% temporal
-rbinom(Sp, 1, 0.1) %>% herbivore
-
-
-
-
+	good.blue = "#8DD3C7"
+	marker = list(color = brewer.pal(3, "Set3"))$color
+	
+	
+	# require(ecr)
+	# require(vegan)
+	
+	# diag(Sp) %>% apply(1, herbivore) %>% max
+	mono.cost = diag(Sp) %>% apply(1, cost) 
+	mono.bees = diag(Sp) %>% apply(1, biodiv)
+	
+	max.bees = biodiv(rep(1,Sp))
+	max.cost = rep(1, Sp) %>% cost
+	
+	randmix = sapply(1:1000, function(x) rbinom(Sp, 1, runif(1)))
+	# dim(randmix)
+	
+	rand.bees = randmix %>% apply(2, function(x) biodiv(x))
+	rand.cost = randmix %>% apply(2, function(x) cost(x))
+	
+	rand = data.frame(findme = 1:length(rand.cost), cost = rand.cost, bees = rand.bees)
+	
+	# Budget = 200
+	
+	##### GA fitness function
+	# fitness = function(x, B = Budget) {
+	#     elastic = 1/(cost(x) - B)^2
+	#   biodiv(x)*ifelse(cost(x) - B <= 1, 1, elastic)}
+	# what if you used a more elastic threshold? so the *best* mix is under budget
+	# but that way the GA can learn from mixes that happen to be a bit over
+	
+#	Suggest = randmix[, which(rand.cost < Budget)[1:min(20, nrow(randmix))]] %>% t
+	# modify GA monitor to return something I want
+	
+	barMonitor <- function (object, ...) 
+	{
+	  best = na.exclude(object@fitness) %>% max %>% format(digits = 0)
+	  incProgress(1/Runs, detail = paste("Try no.", object@iter, "| Best =", best))
+	}
+	
+	Runs = 100
+	

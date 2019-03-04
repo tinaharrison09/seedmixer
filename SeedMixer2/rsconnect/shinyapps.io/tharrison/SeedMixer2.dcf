@@ -1,0 +1,12 @@
+name: SeedMixer2
+title: SeedMixer2
+username:
+account: tharrison
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 761301
+bundleId: 1915349
+url: https://tharrison.shinyapps.io/SeedMixer2/
+when: 1551737460.85456
+asMultiple: FALSE
+asStatic: FALSE

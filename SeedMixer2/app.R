@@ -3,6 +3,8 @@ require(shinythemes)
 require(shinyjs)
 require(DT)
 
+source("code/ecology.R")
+# source("SeedMixer2/code/decision.R")
 
 ui <- fluidPage(
   theme = shinytheme("journal"),
@@ -147,7 +149,6 @@ server <- function(input, output) {
        
                           Suggest = randmix[, which(rand.cost < input$budgetInput)[1:min(20, nrow(randmix))]] %>% t
                           
-                          Runs = 100
                           
                           fitness = function(x, B = input$budgetInput) {
                             elastic = 1/(cost(x) - B)^2
